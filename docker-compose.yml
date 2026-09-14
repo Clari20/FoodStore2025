@@ -1,0 +1,25 @@
+# ─── Food Store — Docker Compose ───────────────────────────────────────────────
+# Levanta PostgreSQL 16 para desarrollo local.
+#
+# Uso:
+#   docker compose up -d          → levantar en segundo plano
+#   docker compose down           → apagar
+#   docker compose down -v        → apagar y BORRAR datos
+# ───────────────────────────────────────────────────────────────────────────────
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: food_store_pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: food_store_dev
+      POSTGRES_DB: food_store_db
+    ports:
+      - "5433:5432"       # Puerto 5433 externo para no chocar con otro PG local
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pg_data:

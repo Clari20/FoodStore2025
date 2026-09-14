@@ -1,0 +1,72 @@
+@startuml trazabilidad_estados
+' ══════════════════════════════════════════════════════════════════════
+'  TRAZABILIDAD — MAQUINA DE ESTADOS DE PEDIDO
+'  Entidades: Pedido · HistorialEstadoPedido · EstadoPedido
+'  Regla: Validar EstadoPedido.es_terminal antes de cada INSERT
+'         en HistorialEstadoPedido
+' ══════════════════════════════════════════════════════════════════════
+
+skinparam theme plain
+skinparam shadowing false
+
+skinparam state {
+    BackgroundColor              #FEFEFE
+    BorderColor                  #90A4AE
+    FontName                     Courier New
+    FontSize                     11
+    ArrowColor                   #78909C
+    ArrowFontColor               #546E7A
+    ArrowFontSize                9
+    StartColor                   #263238
+    EndColor                     #263238
+}
+
+skinparam note {
+    BackgroundColor              #FFFDE7
+    BorderColor                  #F9A825
+    FontColor                    #5D4037
+    FontSize                     9
+}
+
+title Maquina de Estados - Pedido\nHistorialEstadoPedido: append-only . ORDER BY created_at ASC
+
+' ── Happy path ────────────────────────────────────────────────────────
+[*]          --> PENDIENTE   : crear pedido\nestado_desde = NULL
+
+PENDIENTE    --> CONFIRMADO  : confirmar()\npago procesado
+CONFIRMADO   --> EN_PREP     : iniciarPrep()\nstock disponible
+EN_PREP      --> EN_CAMINO   : despachar()\npreparacion finalizada
+EN_CAMINO    --> ENTREGADO   : confirmarEntrega()
+
+' ── Cancelacion ───────────────────────────────────────────────────────
+PENDIENTE    --> CANCELADO   : cancelar()
+CONFIRMADO   --> CANCELADO   : cancelar()
+EN_PREP      --> CANCELADO   : cancelar() [solo operador]
+
+' ── Estados terminales ────────────────────────────────────────────────
+ENTREGADO    --> [*]
+CANCELADO    --> [*]
+
+' ── Definicion de estados ─────────────────────────────────────────────
+state PENDIENTE  #FFF9C4 : orden: 1 | es_terminal: false
+state CONFIRMADO #BBDEFB : orden: 2 | es_terminal: false
+state EN_PREP    #B2EBF2 : orden: 3 | es_terminal: false
+state EN_CAMINO  #EDE7F6 : orden: 4 | es_terminal: false
+state ENTREGADO  #C8E6C9 : orden: 5 | es_terminal: TRUE
+state CANCELADO  #FFCDD2 : orden: 6 | es_terminal: TRUE
+
+note right of ENTREGADO
+  Estado terminal.
+  No admite transiciones salientes.
+  Validar es_terminal en capa de servicio
+  antes de INSERT en HistorialEstadoPedido.
+end note
+
+note right of CANCELADO
+  Estado terminal.
+  Accesible desde:
+  PENDIENTE, CONFIRMADO, EN_PREP.
+  Desde EN_CAMINO NO permitido.
+end note
+
+@enduml

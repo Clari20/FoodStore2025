@@ -1,0 +1,301 @@
+@startuml sistema_pedidos_erd
+' ══════════════════════════════════════════════════════════════════════
+'  SISTEMA DE PEDIDOS DE COMIDA — ERD
+'  v3.0 · 3FN · Soft-delete · Snapshot · Audit Trail · FK explicitas
+'  Notacion:
+'    *-- composicion  -> ON DELETE CASCADE
+'    o-- asociacion   -> ON DELETE RESTRICT / SET NULL
+'  Estereotipos:
+'    <<Table>>   entidad mutable
+'    <<Link>>    tabla pivot N:M
+'    <<Catalog>> catalogo de referencia
+' ══════════════════════════════════════════════════════════════════════
+
+skinparam theme plain
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 70
+
+skinparam class {
+    BackgroundColor              #FEFEFE
+    BorderColor                  #B0BEC5
+    HeaderBackgroundColor        #263238
+    HeaderFontColor              #ECEFF1
+    HeaderFontStyle              bold
+    HeaderFontSize               11
+    AttributeFontColor           #37474F
+    AttributeFontSize            10
+    StereotypeFontColor          #90A4AE
+    StereotypeFontSize           8
+    FontName                     Courier New
+}
+
+skinparam package {
+    BackgroundColor              #FAFAFA
+    BorderColor                  #90A4AE
+    FontColor                    #263238
+    FontStyle                    bold
+    FontSize                     12
+}
+
+skinparam note {
+    BackgroundColor              #FFFDE7
+    BorderColor                  #F9A825
+    FontColor                    #5D4037
+    FontSize                     9
+}
+
+' ══════════════════════════════════════════════════════════════════════
+'  DOMINIO 1 — IDENTIDAD & ACCESO
+' ══════════════════════════════════════════════════════════════════════
+package "Identidad & Acceso" #EDE7F6 {
+
+    class Usuario <<Table>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. Datos personales ..
+        + nombre              : VARCHAR(80)        {NN}
+        + apellido            : VARCHAR(80)        {NN}
+        + email               : VARCHAR(254)       {UQ, NN}
+        + celular             : VARCHAR(20)
+        + password_hash       : CHAR(60)           {NN}
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN}
+        + updated_at          : TIMESTAMPTZ        {NN}
+        + deleted_at          : TIMESTAMPTZ
+    }
+
+    class Rol <<Catalog>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. Atributos ..
+        + nombre              : VARCHAR(50)        {UQ, NN}
+        + descripcion         : TEXT
+    }
+
+    class UsuarioRol <<Link>> {
+        .. PK compuesta ..
+        + usuario_id          : BIGINT            {PK, FK}
+        + rol_id              : BIGINT            {PK, FK}
+        .. Atributos ..
+        + asignado_por_id     : BIGINT            {FK -> Usuario.id}
+        + expires_at          : TIMESTAMPTZ
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN}
+    }
+
+    class DireccionEntrega <<Table>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. FK ..
+        + usuario_id          : BIGINT            {FK, NN}
+        .. Atributos ..
+        + etiqueta            : VARCHAR(80)
+        + linea1              : TEXT               {NN}
+        + linea2              : TEXT
+        + ciudad              : VARCHAR(100)       {NN}
+        + latitud             : DECIMAL(9,6)
+        + longitud            : DECIMAL(9,6)
+        + es_principal        : BOOLEAN            {NN, DEFAULT false}
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN}
+        + updated_at          : TIMESTAMPTZ        {NN}
+        + deleted_at          : TIMESTAMPTZ
+    }
+}
+
+' ══════════════════════════════════════════════════════════════════════
+'  DOMINIO 2 — CATALOGO DE PRODUCTOS
+' ══════════════════════════════════════════════════════════════════════
+package "Catalogo de Productos" #E8F5E9 {
+
+    class Categoria <<Table>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. FK ..
+        + parent_id           : BIGINT            {FK -> Categoria.id, self-ref}
+        .. Atributos ..
+        + nombre              : VARCHAR(100)       {UQ, NN}
+        + descripcion         : TEXT
+        + orden_display       : INT                {NN, DEFAULT 0}
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN}
+        + updated_at          : TIMESTAMPTZ        {NN}
+        + deleted_at          : TIMESTAMPTZ
+    }
+
+    class Producto <<Table>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. Atributos ..
+        + nombre              : VARCHAR(150)       {NN}
+        + descripcion         : TEXT
+        + precio_base         : DECIMAL(10,2)      {NN, CHECK >= 0}
+        + imagenes_url        : TEXT[]
+        + tiempo_prep_min     : INT
+        + disponible          : BOOLEAN            {NN, DEFAULT true}
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN}
+        + updated_at          : TIMESTAMPTZ        {NN}
+        + deleted_at          : TIMESTAMPTZ
+    }
+    note bottom of Producto
+      stock excluido: dominio INVENTARIO (SRP)
+    end note
+
+    class ProductoCategoria <<Link>> {
+        .. PK compuesta ..
+        + producto_id         : BIGINT            {PK, FK}
+        + categoria_id        : BIGINT            {PK, FK}
+        .. Atributos ..
+        + es_principal        : BOOLEAN            {NN, DEFAULT false}
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN}
+    }
+
+    class Ingrediente <<Table>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. Atributos ..
+        + nombre              : VARCHAR(100)       {UQ, NN}
+        + es_alergeno         : BOOLEAN            {NN, DEFAULT false}
+    }
+
+    class ProductoIngrediente <<Link>> {
+        .. PK compuesta ..
+        + producto_id         : BIGINT            {PK, FK}
+        + ingrediente_id      : BIGINT            {PK, FK}
+        .. Atributos ..
+        + es_removible        : BOOLEAN            {NN}
+        + es_opcional         : BOOLEAN            {NN, DEFAULT false}
+    }
+}
+
+' ══════════════════════════════════════════════════════════════════════
+'  DOMINIO 3 — VENTAS & TRANSACCIONES
+' ══════════════════════════════════════════════════════════════════════
+package "Ventas & Transacciones" #FFF3E0 {
+
+    class FormaPago <<Catalog>> {
+        .. PK ..
+        + codigo              : VARCHAR(30)        {PK}
+        .. Atributos ..
+        + descripcion         : VARCHAR(80)        {NN}
+        + activo              : BOOLEAN            {NN, DEFAULT true}
+    }
+
+    class EstadoPedido <<Catalog>> {
+        .. PK ..
+        + codigo              : VARCHAR(20)        {PK}
+        .. Atributos ..
+        + descripcion         : VARCHAR(80)        {NN}
+        + orden               : INT                {NN}
+        + es_terminal         : BOOLEAN            {NN}
+    }
+    note right of EstadoPedido
+      PENDIENTE   orden 1  es_terminal false
+      CONFIRMADO  orden 2  es_terminal false
+      EN_PREP     orden 3  es_terminal false
+      EN_CAMINO   orden 4  es_terminal false
+      ENTREGADO   orden 5  es_terminal TRUE
+      CANCELADO   orden 6  es_terminal TRUE
+    end note
+
+    class Pedido <<Table>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. FK ..
+        + usuario_id          : BIGINT            {FK, NN}
+        + direccion_id        : BIGINT            {FK, SET NULL}
+        + estado_codigo       : VARCHAR(20)        {FK, NN}
+        + forma_pago_codigo   : VARCHAR(30)        {FK, NN}
+        .. Snapshot monetario ..
+        + subtotal            : DECIMAL(10,2)      {NN, snap}
+        + descuento           : DECIMAL(10,2)      {NN, DEFAULT 0, snap}
+        + costo_envio         : DECIMAL(10,2)      {NN, DEFAULT 0, snap}
+        + total               : DECIMAL(10,2)      {NN, CHECK >= 0, snap}
+        .. Atributos ..
+        + notas               : TEXT
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN}
+        + updated_at          : TIMESTAMPTZ        {NN}
+        + deleted_at          : TIMESTAMPTZ
+    }
+
+    class DetallePedido <<Table>> {
+        .. PK compuesta ..
+        + pedido_id                 : BIGINT       {PK, FK, CASCADE}
+        + producto_id               : BIGINT       {PK, FK, RESTRICT}
+        .. Atributos ..
+        + cantidad                  : SMALLINT     {NN, CHECK >= 1}
+        .. Snapshot ..
+        + nombre_producto_snap      : VARCHAR(150) {NN, snap}
+        + precio_unitario_snap      : DECIMAL(10,2){NN, CHECK >= 0, snap}
+        + subtotal_snap             : DECIMAL(10,2){NN, snap}
+        + personalizacion           : JSONB
+        .. Audit ..
+        + created_at                : TIMESTAMPTZ  {NN, inmutable}
+    }
+    note bottom of DetallePedido
+      Fila inmutable: sin updated_at.
+      personalizacion = JSONB con
+      ingredientes removidos/agregados.
+    end note
+
+    class HistorialEstadoPedido <<Table>> {
+        .. PK ..
+        + id                  : BIGSERIAL         {PK}
+        .. FK de trazabilidad ..
+        + pedido_id           : BIGINT            {FK, NN, CASCADE}
+        + estado_desde        : VARCHAR(20)        {FK, NULL = inicial}
+        + estado_hacia        : VARCHAR(20)        {FK, NN}
+        + usuario_id          : BIGINT            {FK}
+        .. Atributos ..
+        + motivo              : TEXT
+        .. Audit ..
+        + created_at          : TIMESTAMPTZ        {NN, append-only}
+    }
+    note bottom of HistorialEstadoPedido
+      Append-only: solo INSERT.
+      Nunca UPDATE ni DELETE.
+      estado_desde = NULL: transicion inicial.
+      Reconstruir: ORDER BY created_at ASC.
+      Validar es_terminal antes de INSERT.
+    end note
+}
+
+' ══════════════════════════════════════════════════════════════════════
+'  RELACIONES
+' ══════════════════════════════════════════════════════════════════════
+
+' Identidad
+Usuario          "1"   *-- "0..*"  DireccionEntrega          : tiene >
+Usuario          "1"   *-- "0..*"  UsuarioRol                : posee >
+Rol              "1"   o-- "0..*"  UsuarioRol                : agrupa >
+Usuario          "1"   o-- "0..*"  UsuarioRol                : asignado_por >
+
+' Catalogo
+Categoria        "0..1" o-- "0..*" Categoria                 : subcategoria >
+Producto         "1"   *-- "1..*"  ProductoCategoria         : clasifica >
+Categoria        "1"   o-- "0..*"  ProductoCategoria         : agrupa <
+Producto         "1"   *-- "0..*"  ProductoIngrediente       : contiene >
+Ingrediente      "1"   o-- "0..*"  ProductoIngrediente       : usado en <
+
+' Ventas
+Usuario          "1"   o-- "0..*"  Pedido                    : realiza >
+DireccionEntrega "1"   o-- "0..*"  Pedido                    : destino >
+EstadoPedido     "1"   o-- "0..*"  Pedido                    : en estado <
+FormaPago        "1"   o-- "0..*"  Pedido                    : pagado con <
+Pedido           "1"   *-- "1..*"  DetallePedido             : contiene >
+Producto         "1"   o-- "0..*"  DetallePedido             : referenciado <
+
+' Trazabilidad
+Pedido           "1"   *-- "0..*"  HistorialEstadoPedido     : historial >
+EstadoPedido     "1"   o-- "0..*"  HistorialEstadoPedido     : desde >
+EstadoPedido     "1"   o-- "0..*"  HistorialEstadoPedido     : hacia >
+Usuario          "1"   o-- "0..*"  HistorialEstadoPedido     : modifico >
+
+@enduml
