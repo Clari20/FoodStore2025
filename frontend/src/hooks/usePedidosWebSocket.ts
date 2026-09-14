@@ -4,7 +4,7 @@ import type { PedidoWsMessage } from "../store/wsStore";
 
 export type { PedidoWsMessage };
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 interface UsePedidosWebSocketOptions {
   enabled?: boolean;
