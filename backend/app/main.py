@@ -48,6 +48,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,8 +57,14 @@ app.add_middleware(
 # Servir archivos estáticos (uploads)
 # OJO: Se mantiene esta ruta SÓLO para que las imágenes del seed sigan funcionando localmente.
 # Los nuevos uploads usarán Cloudinary.
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="static_uploads")
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="static_uploads")
+except OSError:
+    # En Vercel el filesystem del deploy es de solo lectura.
+    # Los uploads nuevos van por Cloudinary, así que esto solo afecta
+    # a imágenes locales de seed/desarrollo — no es crítico si falla.
+    pass
 
 
 @app.on_event("startup")
@@ -83,3 +90,4 @@ app.include_router(pagos_router)
 def health_check():
     """Health check del servidor."""
     return {"status": "ok", "app": "Food Store API"}
+
