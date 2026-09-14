@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     postgres_db:       str = "food_store_db"
     postgres_host:     str = "localhost"
     postgres_port:     int = 5433
+    postgres_sslmode:  str = "prefer"
 
     @computed_field
     @property
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
         return (
             f"postgresql://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            f"?sslmode={self.postgres_sslmode}"
         )
 
     # ─── JWT ──────────────────────────────────────────────────────────────────
@@ -87,3 +89,4 @@ class Settings(BaseSettings):
 
 # Instancia global — importar desde aquí en toda la app
 settings = Settings()
+
