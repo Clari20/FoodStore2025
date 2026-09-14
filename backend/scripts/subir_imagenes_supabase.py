@@ -24,7 +24,9 @@ from sqlmodel import Session, select
 
 from app.core.database import engine
 from app.core.media import SEEDED_UPLOAD_DIR
-from app.modules.productos.model import Producto
+from app.modules.ingredientes.model import Ingrediente  # noqa: F401 - necesario para resolver relaciones
+from app.modules.categorias.model import Categoria  # noqa: F401 - necesario para resolver relaciones
+from app.modules.productos.model import Producto, ProductoCategoria, ProductoIngrediente, UnidadMedida  # noqa: F401
 
 load_dotenv()
 
